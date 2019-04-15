@@ -18,75 +18,80 @@ library(spatstat)
 set.seed(04082019)
 ```
 
-### K function
+### Modeling Point Patterns using NHPPs
 
-- We previously looked at the $F(d)$ and $G(d)$ functions, which corresponded to *CDFs, as a function of distance, for open space and distance between points.*
-
+- Statistical modeling depends on a sampling model for the data and the associated likelihood function. 
 \vfill
-
-- Another interesting feature of a point process is the number of points in a specified area.
+- *Conditional on the number of points, $Num(D) = n$, the location density can be specified as:*
+$$f(\boldsymbol{s}_1, \dots, \boldsymbol{s}_n |Num(D) = n) = \prod_i \frac{\lambda(\boldsymbol{s}_i)}{(\lambda(D))^n}$$
 \vfill
-- Consider $E(Num(\boldsymbol{s},d,\boldsymbol{S}))$, the expected number of points in $\delta_d\boldsymbol{s}$, a circle of radius $d$ centered at $\boldsymbol{s}$.
+- Then condidering the location and number of points simultaneously, *we have*
+$$f(\boldsymbol{s}_1, \dots, \boldsymbol{s}_n, Num(D) = n) = \prod_i \frac{\lambda(\boldsymbol{s}_i)}{(\lambda(D))^n} \times (\lambda(D))^n \frac{\exp(-\lambda(D))}{n!}$$
 \vfill
-- *Ripley's K or just the K function, considers the expected number of points within a distance $d$ of an arbitrary point. Formally this is defined for CSR as*
-$$K(d) = \frac{E(\text{number of points within d})}{\lambda}$$.
-*In other words, this is scaled by $\lambda$*
+- *Finally, the likelihood is*
+$$\mathcal{L}(\lambda(\boldsymbol{s}), \boldsymbol{s} \in D; \boldsymbol{s}_1, \dots, \boldsymbol{s}_n,) = \prod_i \lambda(\boldsymbol{s}_i)\exp(-\lambda(D))$$
 \vfill
-- With CSR, $K(d) = \frac{\lambda \pi d^2}{\lambda} = \lambda d^2.$
+- Alternatively, consider a fine partition for $D$, then using the Poisson assumption, the likelihood is the product of the counts across the partitions.
+$$\prod_l \exp(-\lambda(A_l))(\lambda(A_l))^{Num(A_l)}$$
+As the grid becomes finer, $Num(A_l) \in \{0,1\}$.
 \vfill
-- To estimate $K(d)$, *we use*
-$$\hat{K}(d) = (\hat{\lambda})^{-1}\sum_i \sum_j 1(||\boldsymbol{s}_i - \boldsymbol{s}_j|| \leq d)/n$$
-*where $\hat{\lambda} = n / |\mathcal{D}|$, note the typo in the book.*
-\vfill
-- The empirical $K$ statistic is compared with $\pi d^2$. *For $K > \pi d^2$, the series exhibits clustering, for $K < \pi d^2$ the process exhibits inhibition.*
-\vfill
-- Similar to the $G$ and $F$ functions, edge correction is typically applied.
 \newpage
 
-### `spatstat` Intro
-- The `spatstat` package is a comprehensive R package for point process data. It has a [website](http://spatstat.org) and a nice [vignette](https://cran.r-project.org/web/packages/spatstat/vignettes/getstart.pdf).
+- *The likelihood is a function of the entire intensity surface $\lambda(\boldsymbol{s})$. Hence, a functional description of $\lambda(\boldsymbol{s})$ is necessary.*
 \vfill
+- __Discuss__: how could $\lambda(\boldsymbol{s})$ be obtained?
 
-- Consider a dataset with medieval grave site information.
-```{r, echo = T}
-data(grave)
-summary(grave)
-plot(grave)
-```
 \vfill
-- Explore the `Fest()`, `Gest()`, and `Kest()` functions in `spatstat` and summarize the results for the `grave` dataset. (Also look at the `envelope` function for plots.)
-
+- *There are two general approaches for modeling $\lambda(\boldsymbol{s})$: parametric and non-parametric.*
 
 \vfill
 
+- A simple, but "silly" example of a parametric form would be $\lambda(\boldsymbol{s}) = \sigma \lambda_0(\boldsymbol{s}).$ *Realistically, $\lambda_0(\boldsymbol{s})$ would not be available.*
+\vfill
+
+- Suppose remoted-sensed covariate information is available on a grid. How might this be used for constructing $\lambda(\boldsymbol{s})$? *Markov random field properties (Areal data) could be used.*
+\vfill
+- In general a parametric function $\lambda(\boldsymbol{s}; \theta)$ could be specified, but it would required a richly specified class that would need to be non-negative. A common approach for this type of problem is to use a set of basis functions such that $\lambda(\boldsymbol{s}; \theta) = \sum_k a_k g_k(\boldsymbol{s})$.
+\vfill
+- Sketch a set of basis functions to create a multimodal curve in 1D.\vfill
+\vfill
 \newpage
-- Next convert the point processes from early classes to `ppp` objects and explore `Fest()`/`Kest()`.
 
-```{r, echo = T}
-set.seed(04082019)
-n <- rpois(4, 50)
-x <- c(rbeta(n[1], 1, 1), rbeta(n[2], 1, 1), rbeta(n[3], 3, 1),rbeta(n[4], 3, 3))
-y <- c(rbeta(n[1], 1, 1), rbeta(n[2], 1, 1), rbeta(n[3], 3, 1),rbeta(n[4], 3, 3))
-
-comb.df <- data.frame(group = c(rep(1, n[1]), rep(2, n[2]), rep(3, n[3]), rep(4, n[4])), x = x, y = y)
-
-df1 <- comb.df %>% filter(group ==1)
-df2 <- comb.df %>% filter(group ==2)
-df3 <- comb.df %>% filter(group ==3)
-df4 <- comb.df %>% filter(group ==4)
-```
-
-
-### Estimating the intensity Function 
-
-- With CSR, the intensity function is trivial - *Just uniform with intensity $\lambda$*.
+- *Sometimes a trend surface (as a function of latitude and longitude) can be used to specify $\lambda(\boldsymbol{s})$*
 \vfill
-- __Discuss:__ given a realization of a point process, how could an intensity function be estimated?
+- The most common approach is to specify $\log(\lambda(\boldsymbol{s})) = X^t(\boldsymbol{s}) \gamma$. *In otherwords, spatial covariates are used in a regression model for the intensity surface.*
 \vfill
-- *One option would be to discretized histogram. Consider a fine grid, then let $\lambda(\delta \boldsymbol{s}) = \int_{\delta \boldsymbol{s}} \lambda(\boldsymbol{s}) d\boldsymbol{s} \approx \lambda(\boldsymbol{s}) |\delta \boldsymbol{s}|,$ where $\lambda(\boldsymbol{s})$ is constant over the grid square. Thus $\lambda(grid) = \frac{Num(grid)}{Area(grid)}$*
+- Specifying covariates still requires integrating $\int_D\exp(X^t(\boldsymbol{s}) \gamma) d\boldsymbol{s}$, which is challenging as $X^t(\boldsymbol{s}$ is not often specified in a functional form.
 \vfill
-- *An alternative is to use kernel density estimates. These are basically a smoothed version of a histogram using some sort of symmetric PDF.*
+- *For a fine resolution, and assuming constant intensity, $\int_B\exp(X^t(\boldsymbol{s}) \gamma) d\boldsymbol{s} = |B|\exp(X^t(\boldsymbol{s})\gamma)$*
 \vfill
-- Now using the `plot(density(.))` function, plot and interpret the empirical intensity for the grave dataset along with the four synthetic examples.
+- Now, considering $\lambda(\boldsymbol{s})$ through the non-parametric lens, *let*
+$$\lambda(\boldsymbol{s}) = g(X^t(\boldsymbol{s})\gamma)\lambda_0(\boldsymbol{s})$$
+*where $g() \geq 0$ and $\lambda_0(\boldsymbol{s})$ as the error process (with mean 1). This is referred to as a Cox process.*
+\vfill
+- Suppose $\lambda(\boldsymbol{s}) = \exp(Z(\boldsymbol{s}))$ where $Z(\boldsymbol{s})$ is a realization from a spatial Gaussian process with mean $X^t(\boldsymbol{s}) \gamma$ and covariance function $\sigma^s \rho()$. *Then this is referred to as a Log Gaussian Cox Process (LGCP)*.
+\vfill
+- The LGCP provides a prior for $\lambda(\boldsymbol{s})$. This can be written as $X^t(\boldsymbol{s}) \gamma + w(\boldsymbol{s})$ where $w(\boldsymbol{s}) = \log \lambda_0(\boldsymbol{s})$.
+\vfill
+\newpage
+
+- __Discuss__: How to fit a model for a LGCP?
 
 \vfill
+- In the parametric setting, *inference proceeds using $\mathcal{L(\theta| \boldsymbol{s}_1, \dots, \boldsymbol{s}_n)}$ in the normal manner.*
+\vfill
+- In the non-parametric setting, *$\lambda(\boldsymbol{s}) = \exp(Z(\boldsymbol{s}))$, where $Z(\boldsymbol{s}) = X^t(\boldsymbol{s}) \gamma + w(\boldsymbol{s})$ is a realization of a GP (GP prior on $\log \lambda_D$)*
+\vfill
+- *Thus priors are needed for the covariance function of $Z(\boldsymbol{s}$, likely $\sigma^2$ and $\phi$.*
+\vfill
+-In general algorithms for this type of data are computationally intensive.
+\vfill
+- Due to the challenges in modeling LGCP, the data is sometimes considered on a grid. Then the intensity for grid $i$ could be estimated as:
+$$\log \lambda_i = X_i^t \beta + \phi_i.$$
+However, the results can be sensitive to the grid specification.
+\vfill
+
+
+
+
+
